@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, make_response, redirect, sess
 import sqlite3
 import json
 
+import Util.load_excel_data as excel
+import Util.load_weather_data as weather
+
 app = Flask(__name__)
 app.secret_key = 'asdf0192958'
 
@@ -16,7 +19,6 @@ def close_db(conn):
     conn.commit()
     conn.close()
 
-
 @app.route('/')
 def index():
     return "success"
@@ -30,6 +32,17 @@ def mypage():
 def is_available_date(date):
     pass
     return True
+
+@app.route('/get_place_data', methods=["POST"])
+def get_place_data():
+    month = request.form.get("month", "1")
+    day = request.form.get("day", "1")
+    place = request.form.get("place", "default_place")
+    
+    sum = 0
+    for i in range(2020, 2023):
+        sum += excel.get_data(i, month, day, place)
+    sum //= 3
 
 @app.route('/add', methods=["POST"])
 def add_plan(): #username, session(cookie), date, place, plan_name
