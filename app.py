@@ -4,9 +4,12 @@ import json
 
 import Util.load_excel_data as excel
 import Util.load_weather_data as weather
+import Util.calculate_day as cd
 
 app = Flask(__name__)
 app.secret_key = 'asdf0192958'
+
+TODAY = [8, 21]
 
 def get_data(board):
     conn = sqlite3.connect("database.db")
@@ -35,14 +38,47 @@ def is_available_date(date):
 
 @app.route('/get_place_data', methods=["POST"])
 def get_place_data():
-    month = request.form.get("month", "1")
-    day = request.form.get("day", "1")
+    month = int(request.form.get("month", "1"))
+    day = int(request.form.get("day", "1"))
     place = request.form.get("place", "default_place")
     
-    sum = 0
-    for i in range(2020, 2023):
-        sum += excel.get_data(i, month, day, place)
-    sum //= 3
+    res = {
+        'user_data': {},
+        'past_data': {},
+        'status': None
+    }
+    res['weather'] = weather.get_weather_data(place, cd.bitween_days([month, day], TODAY) , 1)
+    
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    for i in range(-3, 3):
+        sum = 0
+        temp1, temp2 = cd.add_day(month, day, i)
+        for j in range(2020, 2023):
+            data = excel.get_data(j, temp1, temp2, place)
+            sum += data[2]
+        sum //= 3
+        if i == 0:
+            cur.execute(f"SELECT info FROM places WHERE place='{place}'")
+            rows = cur.fetchall()
+            
+            boundary = json.loads(rows[0][0])
+            print(boundary)
+            if sum < int(boundary['0']):
+                res['status'] = 'low'
+            elif sum < int(boundary['1']):
+                res['status'] = 'middle'
+            else: 
+                res['status'] = 'High'
+
+        res['past_data'][i] = sum
+        
+        cur.execute(f"SELECT people_num FROM plan_data WHERE place='{place}' AND date={str(temp1)+str(temp2)}")
+        rows = cur.fetchall()
+        res['user_data'][i] = rows
+        
+    conn.close()
+    return json.dumps(res)
 
 @app.route('/add', methods=["POST"])
 def add_plan(): #username, session(cookie), date, place, plan_name
@@ -105,7 +141,6 @@ def modify_plan():
 
 @app.route('/list')
 def get_place_list():
-    
     pass
 
 if __name__ == '__main__':
