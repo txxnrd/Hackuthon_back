@@ -12,17 +12,6 @@ app.secret_key = 'asdf0192958'
 
 TODAY = [8, 21]
 
-def get_data(board):
-    conn = sqlite3.connect("database.db")
-    cur = conn.cursor()
-    cur.execute(f"SELECT * FROM {board}")
-    rows = cur.fetchall()
-    return rows, conn, cur
-    
-def close_db(conn):
-    conn.commit()
-    conn.close()
-
 @app.route('/')
 def index():
     return "success"
@@ -58,6 +47,7 @@ def get_place_data():
     res = {
         'user_data': {},
         'past_data': {},
+        'past_color': {},
         'status': None
     }
     res['weather'] = weather.get_weather_data(location_to_filename[place], cd.bitween_days([month, day], TODAY) , 1)
@@ -73,25 +63,48 @@ def get_place_data():
                 continue
             sum += data[2]
         sum //= 3
+        past_min = 100000000
+        if sum<past_min:
+            past_min = sum
+            
         if i == 0:
             cur.execute(f"SELECT info FROM places WHERE place='{location_to_filename[place]}'")
             rows = cur.fetchall()
-            
+            past_blue = False
             boundary = json.loads(rows[0][0])
             print(boundary)
             if sum < int(boundary['0']):
                 res['status'] = 'happy'
+                res['past_color'][i]=0xFF7190FF
+                
             elif sum < int(boundary['1']):
                 res['status'] = 'soso'
+                res['past_color'][i]=0xFFFFFB90
             else: 
                 res['status'] = 'mad'
+                past_blue = True
 
         res['past_data'][i] = sum
         
-        cur.execute(f"SELECT people_num FROM plan_data WHERE place='{place}' AND date={str(temp1)+str(temp2)}")
-        rows = cur.fetchall()
+        cur.execute(f"SELECT people_num FROM plan_data WHERE place='{location_to_filename[place]}' AND date="+"{}{:02d}".format(temp1, temp2))
+        rows = cur.fetchall()[0][0]
+        print(rows)
         res['user_data'][i] = rows
-        
+        past_min = 100000000
+        if rows<past_min:
+            past_min = rows
+    if past_blue:
+        for i in range(-3, 3):
+            if past_min == res['past_data'][i]:
+                res['past_color'][i]=0xFF7190FF
+            else:
+                res['past_color'][i]=0xFF9D9D9D
+        res['past_color'][i]=0xFFFFD7D7
+    else:
+        for i in range(-3, 3):
+            if i==0: continue
+            res['past_color'][i]=0xFF9D9D9D
+    
     conn.close()
     return json.dumps(res)
 
@@ -178,7 +191,7 @@ def get_place_list():
     temp.sort()
     res = {}
     for i in range(len(temp)):
-        res[i] = {'date': temp[i][0], 'place':temp[i][1]}
+        res[i] = {'month': temp[i][0][:2], 'day': temp[i][0][2:4], 'place':temp[i][1]}
     conn.close()
     return res
 

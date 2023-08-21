@@ -34,12 +34,13 @@ def init(conn):
     
     cur.execute(f"CREATE TABLE plan_data (place, date, people_num, specificity);")
     conn.commit()
-    for i in range(20):
-        cur.execute(f"INSERT INTO plan_data values ('여의도', 08{12+i}, {round(random.random()*10000)}, 'None');")
-        conn.commit()
-    for i in range(1, 10):
-        cur.execute(f"INSERT INTO plan_data values ('여의도', 090{i}, {round(random.random()*1000)}, 'None');")
-        conn.commit()
+    for j in boundary:
+        for i in range(20):
+            cur.execute(f"INSERT INTO plan_data values ('{j}', 08{12+i}, {round(random.random()*6000)}, 'None');")
+            conn.commit()
+        for i in range(1, 10):
+            cur.execute(f"INSERT INTO plan_data values ('{j}', 090{i}, {round(random.random()*2000)}, 'None');")
+            conn.commit()
     #cur.execute(f"CREATE TABLE personal_plans (plan_name, place, date, user_key_code);")
     #conn.commit()
     cur.execute(f"CREATE TABLE search_data (place, date, people_num, datas);")
