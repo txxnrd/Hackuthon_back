@@ -3,6 +3,7 @@ import sqlite3
 import json
 
 import Util.load_excel_data as excel
+from Util.load_excel_data import location_to_filename
 import Util.load_weather_data as weather
 import Util.calculate_day as cd
 
@@ -32,22 +33,34 @@ def mypage():
     
     return render_template('/mypage.html')
 
-def is_available_date(date):
-    pass
+def is_available_date(month, day):
+    if cd.bitween_days([int(month), int(day)], TODAY)<31:
+        return True
+    return False
+
+def is_available_place(place):
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT * FROM places WHERE place='{location_to_filename[place]}'")
+    res = cur.fetchall()
+    if len(res[0])==0:
+        return False
     return True
 
-@app.route('/get_place_data', methods=["POST"])
+@app.route('/get_place_data', methods=["GET"])
 def get_place_data():
-    month = int(request.form.get("month", "1"))
-    day = int(request.form.get("day", "1"))
-    place = request.form.get("place", "default_place")
+    args = request.args
+    date = args['date'].split(' ')[0].split('-')
+    month = int(date[1])
+    day = int(date[2])
+    place = args['place']
     
     res = {
         'user_data': {},
         'past_data': {},
         'status': None
     }
-    res['weather'] = weather.get_weather_data(place, cd.bitween_days([month, day], TODAY) , 1)
+    res['weather'] = weather.get_weather_data(location_to_filename[place], cd.bitween_days([month, day], TODAY) , 1)
     
     conn = sqlite3.connect("database.db")
     cur = conn.cursor()
@@ -56,20 +69,22 @@ def get_place_data():
         temp1, temp2 = cd.add_day(month, day, i)
         for j in range(2020, 2023):
             data = excel.get_data(j, temp1, temp2, place)
+            if data[2] == None:
+                continue
             sum += data[2]
         sum //= 3
         if i == 0:
-            cur.execute(f"SELECT info FROM places WHERE place='{place}'")
+            cur.execute(f"SELECT info FROM places WHERE place='{location_to_filename[place]}'")
             rows = cur.fetchall()
             
             boundary = json.loads(rows[0][0])
             print(boundary)
             if sum < int(boundary['0']):
-                res['status'] = 'low'
+                res['status'] = 'happy'
             elif sum < int(boundary['1']):
-                res['status'] = 'middle'
+                res['status'] = 'soso'
             else: 
-                res['status'] = 'High'
+                res['status'] = 'mad'
 
         res['past_data'][i] = sum
         
@@ -80,13 +95,17 @@ def get_place_data():
     conn.close()
     return json.dumps(res)
 
-@app.route('/add', methods=["POST"])
+@app.route('/add', methods=["GET"])
 def add_plan(): #username, session(cookie), date, place, plan_name
-    username = request.form.get("username", "Default username")
-    sess = request.form.get("session", "Default password")
+    args = request.args
+    #username = request.form.get("username", "Default username")
+    username = 'HackKuthon2023'
+    #sess = request.form.get("session", "Default password")
     
     #if session['user:'+username] != username:
     #    return "fail!"
+    
+    #user
     
     conn = sqlite3.connect("database.db")
     cur = conn.cursor()
@@ -96,12 +115,15 @@ def add_plan(): #username, session(cookie), date, place, plan_name
     except:
         return "Invalid username!"
     
-    date = request.form.get("date", "Default date")
-    if not is_available_date(date):
+    date = args['date'].split(' ')[0].split('-')
+    month = date[1]
+    day = date[2]
+    date = month+day
+    if not is_available_date(month, day):
         return "date over!"
     
-    place = request.form.get("place", "Default place")
-    if not is_available_date(date):#겹치는 장소면 덮어씌우기
+    place = args['place']
+    if not is_available_place(place):#겹치는 장소면 덮어씌우기
         return "Invalid place!"
     
     #if new
@@ -125,7 +147,7 @@ def add_plan(): #username, session(cookie), date, place, plan_name
             return json.dumps(plans)
     
     addition = {'place':place, 'date':date}
-    plans[place+date] = addition
+    plans[date+place] = addition
     cur.execute(f"UPDATE users SET plans='{json.dumps(plans)}' WHERE username='{username}'")
     conn.commit()
     conn.close()
@@ -133,7 +155,7 @@ def add_plan(): #username, session(cookie), date, place, plan_name
     
     return json.dumps(plans)
 
-@app.route('/modify', methods=["POST"])
+@app.route('/modify', methods=["GET"])
 def modify_plan():
     
     resp = make_response(redirect("/mypage"))
@@ -141,7 +163,24 @@ def modify_plan():
 
 @app.route('/list')
 def get_place_list():
-    pass
+    username = request.args["username"]
+    username = 'HackKuthon2023'
+    
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT plans FROM users WHERE username='{username}'")
+    rows = json.loads(cur.fetchall()[0][0])
+    print(rows)
+    temp = []
+    for i in rows:
+        print(i)
+        temp.append([rows[i]['date'], rows[i]['place']])  
+    temp.sort()
+    res = {}
+    for i in range(len(temp)):
+        res[i] = {'date': temp[i][0], 'place':temp[i][1]}
+    conn.close()
+    return res
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0")

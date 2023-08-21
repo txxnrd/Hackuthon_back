@@ -1,6 +1,12 @@
 from openpyxl import load_workbook
 import os
 
+location_to_filename = {
+    "뚝섬 한강공원": "뚝섬",
+    "여의도 한강공원": "여의도",
+    "망원 한강공원": "망원"
+}
+
 def get_cell_name(day):
     # E = 1일 AA = 23
     if day >= 23:
@@ -8,7 +14,7 @@ def get_cell_name(day):
     return chr(day - 1 + ord('E'))
 
 def get_data(year, month, day, place):
-    file_name = f'C:/_temporary/Hackuthon_back/Util/han_lake/{year}년/{place}.xlsx'
+    file_name = f'C:/_temporary/Hackuthon_back/Util/han_lake/{year}년/{location_to_filename[place]}.xlsx'
 
     wb = load_workbook(file_name, 
                     read_only=True, ## 읽기 전용(읽기 전용에 최적화되어 파일을 불러온다)
