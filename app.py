@@ -183,17 +183,127 @@ def get_place_list():
     cur = conn.cursor()
     cur.execute(f"SELECT plans FROM users WHERE username='{username}'")
     rows = json.loads(cur.fetchall()[0][0])
-    print(rows)
+    
     temp = []
     for i in rows:
-        print(i)
         temp.append([rows[i]['date'], rows[i]['place']])  
     temp.sort()
     res = {}
+    
+    temp1, temp2 = int(temp[0][0][:2]), int(temp[0][0][2:4])
+    if temp1==TODAY[0] and temp2==TODAY[1]:
+        cur.execute(f"SELECT recent FROM users WHERE username='{username}'")
+        recent = cur.fetchall()[0][0]
+        for i in recent:
+            exist = False
+            date = "{:02d}{:02d}".format(TODAY[0], TODAY[1])
+            if date in recent[i]['date']:
+                exist = True
+                break
+        if not exist:
+            place = temp[0][1]
+            recent[date] = place
+            addition = {'place':place, 'date':date}
+            recent[date+place] = addition
+            cur.execute(f"UPDATE users SET plans='{json.dumps(recent)}' WHERE username='{username}'")
+            conn.commit()        
+    
     for i in range(len(temp)):
-        res[i] = {'month': temp[i][0][:2], 'day': temp[i][0][2:4], 'place':temp[i][1]}
+        sum = 0
+        temp1, temp2 = int(temp[i][0][:2]), int(temp[i][0][2:4])
+        for j in range(2020, 2023):
+            data = excel.get_data(j, temp1, temp2, temp[i][1])
+            if data[2] == None:
+                continue
+            sum += data[2]
+        sum //= 3
+        
+        res[i] = {'month': temp1, 'day': temp2, 'place':temp[i][1]}
+        cur.execute(f"SELECT info FROM places WHERE place='{location_to_filename[temp[i][1]]}'")
+        rows = cur.fetchall()
+        boundary = json.loads(rows[0][0])
+        print(boundary)
+        if sum < int(boundary['0']):
+            res[i]['status'] = 'happy'
+        elif sum < int(boundary['1']):
+            res[i]['status'] = 'soso'
+        else: 
+            res[i]['status'] = 'mad'
+            
     conn.close()
     return res
+
+
+@app.route('/recent', methods=["GET"])
+def get_recent():
+    username = request.args["username"]
+    username = 'HackKuthon2023'
+    
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT recent FROM users WHERE username='{username}'")
+    try:
+        rows = json.loads(cur.fetchall()[0][0])
+    except:
+        return "fail!"
+    temp = []
+    for i in rows:
+        temp.append([rows[i]['date'], rows[i]['place']])  
+    temp.sort()
+    res = {}
+    temp = temp[::-1]
+    for i in range(temp):
+        temp1, temp2 = int(temp[i][0][:2]), int(temp[i][0][2:4])
+        if temp1==TODAY[0] and temp2==TODAY[1]:
+            today = True
+        else:
+            today = False
+        res[i] = {'month': temp1, 'day': temp2, 'place':f'{temp[i][1]}', 'today':f"{today}"}
+            
+    conn.close()
+    return json.dumps(res)
+
+
+@app.route('/verify_place', methods=["GET"])
+def verify_place():
+    args = request.args
+    username = args['username']
+    place = args['place']
+    username = 'HackKuthon2023'
+    
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT plans FROM users WHERE username='{username}'")
+    rows = json.loads(cur.fetchall()[0][0])
+    
+    temp = []
+    for i in rows:
+        temp.append([rows[i]['date'], rows[i]['place']])  
+    temp.sort()
+    if temp[0][0] == "{:02d}{:02d}".format(TODAY[0], TODAY[1]):
+        if temp[0][1] == location_to_filename[place]:
+            cur.execute(f"SELECT reward FROM users WHERE username='{username}'")
+            reward = cur.fetchall()[0][0]
+            cur.execute(f"UPDATE users SET reward={reward+200}")
+            #f"UPDATE users SET plans='{json.dumps(plans)}' WHERE username='{username}'"
+            conn.commit()
+            return True
+    
+    conn.close()
+    return False
+
+@app.route('/reward', methods=["GET"])
+def get_reward():
+    args = request.args
+    username = args['username']
+    username = 'HackKuthon2023'
+    
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    cur.execute(f"SELECT reward FROM users WHERE username='{username}'")
+    res = cur.fetchall()[0][0]
+    
+    return {"reward": res}
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0")

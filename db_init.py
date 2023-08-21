@@ -4,7 +4,7 @@ import random
 
 def init(conn):
     cur = conn.cursor()
-    cur.execute(f"CREATE TABLE users (username, password, agree, reward, plans, key_code);")#password - hash
+    cur.execute(f"CREATE TABLE users (username, password, agree, reward, plans, recent, key_code);")#password - hash
     USERNAME, PW, AGREE, REWARD, PLANS, KEY_CODE = 0, 1, 2, 3, 4, 5
     conn.commit()
     
@@ -50,7 +50,7 @@ conn = sqlite3.connect("database.db")
 init(conn)
 #cur.execute(f"DROP TABLE board")
 cur = conn.cursor()
-cur.execute(f"INSERT INTO users values ('HackKuthon2023', 'test', '1011001', '0', 'None', 'aliwgheilh');")
+cur.execute(f"INSERT INTO users values ('HackKuthon2023', 'test', '1011001', '0', 'None', 'None','aliwgheilh');")
 cur.execute(f"SELECT * FROM users WHERE username='HackKuthon2023'")
 rows = cur.fetchall()
 print(rows)
