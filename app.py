@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, make_response, redirect, sess
 import sqlite3
 import json
 
+from Util.db import currentDB
 import Util.load_excel_data as excel
 from Util.load_excel_data import location_to_filename
 import Util.load_weather_data as weather
@@ -14,7 +15,8 @@ TODAY = [8, 21]
 
 @app.route('/')
 def index():
-    return "success"
+    
+    return "noonchi server upload test"
     #return render_template('./index.html')
 
 @app.route('/mypage')
